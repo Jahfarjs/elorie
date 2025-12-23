@@ -1,12 +1,31 @@
-# NITHISHA JEWELLERS - Premium Jewelry E-Commerce Design Guidelines
+# Elorie Elegance - Premium Jewelry E-Commerce Design Guidelines
 
-## Design Approach
-**Reference-Based**: Inspired by luxury e-commerce platforms (Tiffany & Co, Net-a-Porter) with flowing, premium aesthetics. Focus on elegance, spaciousness, and visual storytelling.
+## Brand Identity
+**Brand Name**: Elorie Elegance
+**Tagline**: "Where Elegance Meets Eternity"
+**Logo**: Golden wings with serif typography on cream background
+**Design Philosophy**: Luxurious, flowing, organic - avoiding boxy/rigid layouts
 
 ## Core Design Principles
 1. **Flowing Over Boxy**: Soft curves, generous spacing, organic transitions between sections
 2. **Premium Positioning**: Sophisticated simplicity, breathing room, refined details
 3. **Visual Hierarchy**: Large, high-quality jewelry imagery takes center stage
+4. **Golden Luxury**: Rich gold tones with cream/ivory backgrounds for warmth
+
+---
+
+## Color Palette
+
+### Primary Colors
+- **Gold Primary**: Rich, warm gold for CTAs and accents (HSL: 38 80% 50%)
+- **Gold Dark**: Deep gold for hover states (HSL: 35 75% 40%)
+- **Cream Background**: Warm ivory/cream (HSL: 40 40% 97%)
+- **Charcoal Text**: Deep warm gray for body text (HSL: 30 10% 20%)
+
+### Supporting Colors
+- **Soft Gold Accent**: Light gold for subtle highlights
+- **Warm White**: Clean white with warm undertone
+- **Muted Gold**: For secondary elements and borders
 
 ---
 
@@ -14,113 +33,109 @@
 - **Primary Font**: Playfair Display (serif) for headings - elegant, luxurious
 - **Secondary Font**: Inter (sans-serif) for body text - clean, readable
 - **Hierarchy**:
-  - Hero Headlines: text-6xl/text-7xl, font-normal
-  - Section Titles: text-4xl/text-5xl, font-normal, tracking-tight
-  - Product Names: text-xl/text-2xl, font-medium
-  - Body Text: text-base/text-lg, leading-relaxed
+  - Hero Headlines: text-5xl/text-6xl, font-normal, tracking-tight
+  - Section Titles: text-3xl/text-4xl, font-normal
+  - Product Names: text-lg/text-xl, font-medium
+  - Body Text: text-base, leading-relaxed
   - Accent Text: text-sm, uppercase, tracking-widest for categories
 
 ---
 
 ## Layout System
-**Spacing Primitives**: Tailwind units of 4, 6, 8, 12, 16, 24
-- Section padding: py-16 to py-32 (desktop), py-12 (mobile)
+**Spacing Primitives**: Generous whitespace is key
+- Section padding: py-20 to py-32 (desktop), py-12 (mobile)
 - Component spacing: gap-8 to gap-16
-- Content containers: max-w-7xl for full sections, max-w-prose for text content
-- Generous whitespace between sections (mb-24/mb-32)
+- Content containers: max-w-7xl for full sections
+- Flowing curves: Use rounded-2xl to rounded-3xl for cards
 
 ---
 
-## Component Library
+## Component Guidelines
 
-### Homepage Sections (in order):
+### Navigation
+- Minimal, elegant header with logo centered or left-aligned
+- Subtle navigation links with hover underline animation
+- Cart icon with badge, profile icon
+- Transparent/glass effect on scroll
 
-**1. Hero Section (80vh)**
-- Full-width background image: Elegant jewelry product/lifestyle shot with subtle overlay
-- Centered content: Brand name (from logo), tagline, primary CTA button with blur backdrop
-- Minimal, spacious design
+### Hero Section (90vh min-height)
+- Full-width with subtle gradient overlay
+- Large, elegant typography
+- Primary CTA button with gold styling
+- Flowing, organic shapes or jewelry imagery
 
-**2. Category Section**
-- 3-column grid (lg:grid-cols-3, md:grid-cols-2)
-- Large category cards with overlay text on hover
+### Category Section
+- 3-column grid (lg:grid-cols-3)
+- Large category cards with elegant overlay
 - Categories: Necklaces, Rings, Earrings, Bracelets, Bangles, Anklets
 - Rounded corners (rounded-2xl), elegant typography
 
-**3. Trending Items**
-- 4-column product grid (lg:grid-cols-4, md:grid-cols-3, sm:grid-cols-2)
-- Product cards: Large square image, product name, price, subtle shadow on hover
-- "View All" link at bottom
+### Product Cards
+- Clean white/cream background
+- Subtle shadow on hover with scale transform
+- Product image (square, 1:1 ratio)
+- Product name, category tag, price
+- Quick add to cart on hover
 
-**4. Best Sellers**
-- Horizontal scrollable carousel/slider
-- 5-6 featured products with larger cards
-- Auto-scroll with manual navigation dots
+### Testimonials
+- 3-column layout on desktop
+- Quote with decorative quotation marks
+- Customer name and rating (stars)
+- Circular avatar with initials
 
-**5. About Section**
-- 2-column layout: Image (craftsperson/store) + text content
-- Flowing paragraph about heritage, craftsmanship, quality
-- Soft rounded image (rounded-3xl)
-
-**6. Customer Testimonials**
-- 3-column grid of testimonial cards
-- Customer name, 5-star rating display, quote, subtle background
-- Circular customer avatars (placeholder initials)
-
-**7. Footer**
-- 4-column layout: Brand info, Quick Links, Contact Details, Social Media
-- Contact: Email, Instagram, WhatsApp icons with links, physical address
-- Newsletter signup: Email input with elegant button
-- Soft top border separation
-
-### Product Listing Page
-- Filter sidebar (left, 25% width): Categories, price range slider, material filters
-- Product grid (right, 75% width): 3-column grid
-- Sorting dropdown: Price, Popularity, New Arrivals
-- Pagination at bottom
-
-### Cart Page
-- 2-column layout: Cart items list (70%) + Order summary card (30%)
-- Item cards: Product image (small), name, quantity selector, price, remove button
-- Summary: Subtotal, shipping, total with prominent checkout button
-
-### Tracking Page
-- Centered timeline/stepper component showing order journey
-- Stages: Order Placed → Processing → Shipped → Out for Delivery → Delivered
-- Order details card: Order number, date, items preview, delivery address
-
-### Profile Page
-- Sidebar navigation: Profile, Orders, Wishlist, Addresses, Settings
-- Main content area switching based on selection
-- Order history: Cards showing order date, items, status, view details
+### Footer
+- 4-column layout: Brand, Quick Links, Contact, Social
+- Contact: Email, Instagram, WhatsApp, Address
+- Soft top border, warm background
+- Newsletter signup option
 
 ---
 
 ## Animations & Interactions
-- Smooth hover scale on product cards (scale-105, transition-transform)
-- Fade-in on scroll for section reveals (minimal, tasteful)
-- Image zoom on product hover (subtle)
+- Smooth hover scale on cards (scale-105, transition-all duration-300)
+- Fade-in on scroll for sections (subtle)
+- Image zoom on product hover
+- Underline animations on links
 - NO complex scroll-triggered animations
 
 ---
 
-## Images
+## Page Layouts
 
-**Hero Section**: Full-width lifestyle image of jewelry being worn or elegant product showcase on neutral background
+### Homepage
+1. Hero with stunning jewelry visual
+2. Category showcase
+3. Trending items grid
+4. Best sellers horizontal scroll
+5. About section (2-column)
+6. Customer testimonials
+7. Newsletter + Footer
 
-**Category Cards**: 6 high-quality category images showing representative jewelry pieces
+### Product Listing
+- Filter sidebar (left, collapsible on mobile)
+- Product grid (3-4 columns)
+- Sort dropdown, pagination
+- Breadcrumb navigation
 
-**Products**: Multiple product images per item (square format, 1:1 ratio, clean white/neutral backgrounds)
+### Cart Page
+- 2-column: Items list + Order summary
+- Clean item cards with quantity controls
+- Prominent checkout button
 
-**About Section**: Workshop/craftsperson image or elegant store interior
+### Order Tracking
+- Visual timeline/stepper
+- Order details card
+- Delivery status badges
 
-**Testimonials**: Use placeholder initials in circular avatars (no stock photos)
+### Profile Page
+- Sidebar navigation with sections
+- Order history, addresses, settings
 
 ---
 
 ## Key Design Details
 - Rounded corners throughout (rounded-xl to rounded-3xl)
-- Subtle shadows (shadow-sm to shadow-lg)
+- Subtle shadows only on hover or floating elements
 - Ample padding in cards (p-6 to p-8)
-- Flowing transitions between sections
 - Premium feel through whitespace, not clutter
-- Mobile-first responsive: Stack columns, expand to multi-column on larger screens
+- Mobile-first responsive design
