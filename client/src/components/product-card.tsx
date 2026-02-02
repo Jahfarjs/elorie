@@ -1,11 +1,15 @@
-import { Link } from "wouter";
-import { ShoppingBag, Star } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { ShoppingBag, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Product } from "@shared/schema";
+import { SafeImage } from "@/components/ui/safe-image";
+import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/data";
 import { useCart } from "@/lib/cart-context";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth-context";
+import { savePendingCartAction } from "@/lib/pending-cart";
+import { useState } from "react";
 
 interface ProductCardProps {
   product: Product;
@@ -15,20 +19,57 @@ interface ProductCardProps {
 export function ProductCard({ product, featured = false }: ProductCardProps) {
   const { addItem } = useCart();
   const { toast } = useToast();
+  const { token } = useAuth();
+  const [, setLocation] = useLocation();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addItem(product);
-    toast({
-      title: "Added to cart",
-      description: `${product.name} has been added to your cart.`,
-    });
+
+    if (!token) {
+      const returnTo = window.location.pathname + window.location.search;
+      savePendingCartAction({
+        productId: product.id,
+        quantity: 1,
+        returnTo,
+      });
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to add items to your cart.",
+      });
+      setLocation("/profile");
+      return;
+    }
+
+    try {
+      await addItem(product);
+      toast({
+        title: "Added to cart",
+        description: `${product.name} has been added to your cart.`,
+      });
+    } catch {
+      // Error toast already handled in cart context.
+    }
   };
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : null;
+
+  const productImages = product.images && product.images.length > 0 ? product.images : [product.imageUrl || ""];
+  
+  const handlePrevImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === 0 ? productImages.length - 1 : prev - 1));
+  };
+  
+  const handleNextImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentImageIndex((prev) => (prev === productImages.length - 1 ? 0 : prev + 1));
+  };
 
   return (
     <Link href={`/product/${product.id}`} data-testid={`card-product-${product.id}`}>
@@ -38,9 +79,9 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
         }`}
       >
         <div className="relative aspect-square rounded-xl overflow-hidden bg-muted">
-          <img
-            src={product.imageUrl || ""}
-            alt={product.name}
+          <SafeImage
+            src={productImages[currentImageIndex]}
+            alt={`${product.name} - Image ${currentImageIndex + 1}`}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           />
 
@@ -53,7 +94,17 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             </Badge>
           )}
 
-          {product.isTrending && !discount && (
+          {product.isCombo && !discount && (
+            <Badge
+              className="absolute top-3 left-3"
+              variant="secondary"
+              data-testid={`badge-combo-${product.id}`}
+            >
+              Combo
+            </Badge>
+          )}
+
+          {product.isTrending && !discount && !product.isCombo && (
             <Badge
               className="absolute top-3 left-3"
               variant="secondary"
@@ -61,6 +112,40 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             >
               Trending
             </Badge>
+          )}
+
+          {/* Navigation arrows - only show if multiple images */}
+          {productImages.length > 1 && (
+            <>
+              <button
+                onClick={handlePrevImage}
+                className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-black/90 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-white dark:hover:bg-black z-10"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+              </button>
+              <button
+                onClick={handleNextImage}
+                className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/90 dark:bg-black/90 rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity shadow-md hover:bg-white dark:hover:bg-black z-10"
+                aria-label="Next image"
+              >
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+              
+              {/* Image indicator dots */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                {productImages.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-1.5 h-1.5 rounded-full transition-all ${
+                      index === currentImageIndex
+                        ? "bg-white w-3"
+                        : "bg-white/60"
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
           )}
 
           <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -88,12 +173,14 @@ export function ProductCard({ product, featured = false }: ProductCardProps) {
             {product.name}
           </h3>
 
-          <div className="flex items-center gap-1">
-            <Star className="h-3.5 w-3.5 fill-primary text-primary" />
-            <span className="text-sm text-muted-foreground">
-              {product.rating} ({product.reviewCount})
-            </span>
-          </div>
+          {(product.reviewCount ?? 0) > 0 && (
+            <div className="flex items-center gap-1">
+              <Star className="h-3.5 w-3.5 fill-primary text-primary" />
+              <span className="text-sm text-muted-foreground">
+                {product.rating} ({product.reviewCount})
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <span

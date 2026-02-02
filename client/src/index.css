@@ -10,6 +10,7 @@
   --elevate-1: rgba(0,0,0, .03);
   --elevate-2: rgba(0,0,0, .08);
   --background: 40 40% 97%;
+  --logo-bg: 33 100% 93%;
   --foreground: 30 10% 15%;
   --border: 38 30% 88%;
   --card: 40 50% 99%;
@@ -81,6 +82,7 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
   --background: 30 15% 8%;
+  --logo-bg: 30 15% 8%;
   --foreground: 40 30% 95%;
   --border: 30 15% 18%;
   --card: 30 12% 11%;

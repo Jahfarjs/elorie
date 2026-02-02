@@ -4,7 +4,7 @@ import { ShoppingBag, User, Menu, X, Sun, Moon, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCart } from "@/lib/cart-context";
 import { useTheme } from "@/components/theme-provider";
-import logoImage from "@assets/WhatsApp_Image_2025-12-23_at_11.16.31_1766469231040.jpeg";
+import logoImage from "@assets/logo.jpeg";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -16,6 +16,7 @@ const navLinks = [
 
 export function Header() {
   const [location] = useLocation();
+  const isHome = location === "/";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { getItemCount } = useCart();
@@ -44,7 +45,7 @@ export function Header() {
             <img
               src={logoImage}
               alt="Elorie Elegance"
-              className="h-12 w-auto object-contain"
+              className={`${isHome ? "h-20" : "h-12"} w-auto object-contain`}
             />
           </Link>
 

@@ -1,18 +1,43 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Trash2, Plus, Minus, ShoppingBag, ArrowLeft, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { SafeImage } from "@/components/ui/safe-image";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { useCart } from "@/lib/cart-context";
 import { formatPrice } from "@/lib/data";
+import { useAuth } from "@/lib/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Cart() {
   const { items, removeItem, updateQuantity, getTotal, clearCart } = useCart();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const subtotal = getTotal();
-  const shipping = subtotal > 5000 ? 0 : 299;
+  const perItemShipping = items.reduce(
+    (sum, item) => sum + (item.product.shippingCharge || 0),
+    0
+  );
+  const shipping = subtotal > 499 ? 0 : perItemShipping;
   const total = subtotal + shipping;
+
+  const handleCheckout = async () => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please login to place your order.",
+      });
+      setLocation("/profile");
+      return;
+    }
+
+    // Checkout is a multi-step flow (address -> payment -> confirm)
+    // Address confirmation happens before payment selection.
+    setLocation("/checkout");
+  };
 
   if (items.length === 0) {
     return (
@@ -76,7 +101,7 @@ export default function Cart() {
                 >
                   <div className="flex gap-4 sm:gap-6">
                     <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-muted shrink-0">
-                      <img
+                      <SafeImage
                         src={item.product.imageUrl || ""}
                         alt={item.product.name}
                         className="w-full h-full object-cover"
@@ -174,7 +199,7 @@ export default function Cart() {
                   </div>
                   {shipping > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Free shipping on orders above {formatPrice(5000)}
+                      Free shipping on orders above {formatPrice(499)}
                     </p>
                   )}
 
@@ -189,6 +214,7 @@ export default function Cart() {
                 <Button
                   size="lg"
                   className="w-full mt-6"
+                  onClick={handleCheckout}
                   data-testid="button-checkout"
                 >
                   Proceed to Checkout

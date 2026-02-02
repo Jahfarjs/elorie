@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { useEffect, useState } from "react";
 import { ArrowRight, Star, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,24 +7,29 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ProductCard } from "@/components/product-card";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import {
-  categories,
-  getTrendingProducts,
-  getBestSellers,
-  testimonials,
-} from "@/lib/data";
-import logoImage from "@assets/WhatsApp_Image_2025-12-23_at_11.16.31_1766469231040.jpeg";
+import { categories } from "@/lib/data";
+import logoImage from "@assets/logo.jpeg";
+import api from "@/lib/api";
+import { mapItemToProduct } from "@/lib/mappers";
+import type { Feedback, Item, Product } from "@/lib/types";
 
 function HeroSection() {
   return (
     <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-to-br from-gold-100/50 via-background to-gold-50/30 dark:from-gold-900/20 dark:via-background dark:to-gold-800/10" />
+      <div className="absolute inset-0 bg-gradient-to-br from-gold-100/50 via-[hsl(var(--logo-bg))] to-gold-50/30 dark:from-gold-900/20 dark:via-background dark:to-gold-800/10" />
       
       <div className="absolute top-20 right-10 w-72 h-72 bg-gold-200/40 dark:bg-gold-700/20 rounded-full blur-3xl" />
       <div className="absolute bottom-20 left-10 w-96 h-96 bg-gold-100/50 dark:bg-gold-800/15 rounded-full blur-3xl" />
       
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="max-w-3xl mx-auto space-y-8">
+          <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-2">
+            <span className="uppercase tracking-[0.2em] text-xs">
+              Special Offer
+            </span>
+            <span className="h-1 w-1 rounded-full bg-primary/40" />
+            <span>Free shipping on all orders above ₹499</span>
+          </div>
           <p className="text-sm uppercase tracking-[0.3em] text-primary font-medium">
             Premium Handcrafted Jewelry
           </p>
@@ -60,7 +66,7 @@ function HeroSection() {
         </div>
       </div>
       
-      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[hsl(var(--logo-bg))] to-transparent dark:from-background" />
     </section>
   );
 }
@@ -110,8 +116,25 @@ function CategoriesSection() {
   );
 }
 
-function TrendingSection() {
-  const trendingProducts = getTrendingProducts().slice(0, 4);
+function ViewAllCard({ href, label = "View All" }: { href: string; label?: string }) {
+  return (
+    <Link href={href}>
+      <Card className="h-full flex items-center justify-center p-6 hover:border-primary transition-colors cursor-pointer group">
+        <div className="text-center space-y-3">
+          <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <ArrowRight className="h-8 w-8 text-primary" />
+          </div>
+          <div>
+            <p className="font-medium text-lg">{label}</p>
+            <p className="text-sm text-muted-foreground">Explore more</p>
+          </div>
+        </div>
+      </Card>
+    </Link>
+  );
+}
+
+function TrendingSection({ products }: { products: Product[] }) {
   
   return (
     <section className="py-20 sm:py-28 bg-muted/30">
@@ -125,26 +148,20 @@ function TrendingSection() {
               Trending Now
             </h2>
           </div>
-          <Link href="/shop?sort=trending">
-            <Button variant="outline" data-testid="button-view-trending">
-              View All
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
         </div>
         
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          {trendingProducts.map((product) => (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
+          {products.slice(0, 5).map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
+          <ViewAllCard href="/shop?sort=trending" />
         </div>
       </div>
     </section>
   );
 }
 
-function BestSellersSection() {
-  const bestSellers = getBestSellers();
+function BestSellersSection({ products }: { products: Product[] }) {
   
   return (
     <section className="py-20 sm:py-28">
@@ -158,23 +175,44 @@ function BestSellersSection() {
               Best Sellers
             </h2>
           </div>
-          <Link href="/shop?sort=bestseller">
-            <Button variant="outline" data-testid="button-view-bestsellers">
-              View All
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-          </Link>
         </div>
         
-        <div className="flex gap-6 overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory scrollbar-hide">
-          {bestSellers.map((product) => (
-            <div
-              key={product.id}
-              className="flex-shrink-0 w-[280px] sm:w-[320px] snap-start"
-            >
-              <ProductCard product={product} featured />
-            </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
+          {products.slice(0, 5).map((product) => (
+            <ProductCard key={product.id} product={product} />
           ))}
+          <ViewAllCard href="/shop?sort=bestseller" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ComboSection({ products }: { products: Product[] }) {
+  // Only render section if there are combo products
+  if (products.length === 0) {
+    return null;
+  }
+  
+  return (
+    <section className="py-20 sm:py-28 bg-muted/30">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-14">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-primary font-medium mb-3">
+              Special Offers
+            </p>
+            <h2 className="font-serif text-3xl sm:text-4xl font-normal">
+              Combo Collections
+            </h2>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
+          {products.slice(0, 5).map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+          <ViewAllCard href="/shop?sort=combo" />
         </div>
       </div>
     </section>
@@ -225,7 +263,7 @@ function AboutSection() {
               <img
                 src={logoImage}
                 alt="Elorie Elegance"
-                className="h-14 w-auto object-contain opacity-70"
+                className="h-16 w-auto object-contain opacity-70"
               />
               <div className="h-12 w-px bg-border" />
               <div>
@@ -240,7 +278,7 @@ function AboutSection() {
   );
 }
 
-function TestimonialsSection() {
+function TestimonialsSection({ testimonials }: { testimonials: Feedback[] }) {
   return (
     <section className="py-20 sm:py-28">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -256,22 +294,27 @@ function TestimonialsSection() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {testimonials.slice(0, 6).map((testimonial) => (
             <Card
-              key={testimonial.id}
+              key={testimonial._id}
               className="p-6 sm:p-8 rounded-2xl"
-              data-testid={`card-testimonial-${testimonial.id}`}
+              data-testid={`card-testimonial-${testimonial._id}`}
             >
               <Quote className="h-8 w-8 text-primary/30 mb-4" />
               <p className="text-muted-foreground leading-relaxed mb-6">
-                &ldquo;{testimonial.text}&rdquo;
+                &ldquo;{testimonial.description}&rdquo;
               </p>
               <div className="flex items-center gap-4">
                 <Avatar className="h-12 w-12 bg-primary/10">
                   <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                    {testimonial.initials}
+                    {testimonial.customerName
+                      .split(" ")
+                      .map((part) => part[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <p className="font-medium">{testimonial.name}</p>
+                  <p className="font-medium">{testimonial.customerName}</p>
                   <div className="flex items-center gap-1 mt-0.5">
                     {Array.from({ length: testimonial.rating }).map((_, i) => (
                       <Star
@@ -317,16 +360,54 @@ function NewsletterSection() {
 }
 
 export default function Home() {
+  const [trendingProducts, setTrendingProducts] = useState<Product[]>([]);
+  const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [comboItems, setComboItems] = useState<Product[]>([]);
+  const [feedback, setFeedback] = useState<Feedback[]>([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const [trendingResponse, bestSellerResponse, comboResponse, feedbackResponse] = await Promise.all([
+          api.get<{ data: Item[] }>("/items", { params: { isTrendingNow: true, limit: 5 } }),
+          api.get<{ data: Item[] }>("/items", { params: { isBestSeller: true, limit: 5 } }),
+          api.get<{ data: Item[] }>("/items", { params: { isCombo: true, limit: 5 } }),
+          api.get<{ data: Feedback[] }>("/feedback", { params: { limit: 6 } }),
+        ]);
+
+        // Filter out invalid items and map to products
+        const validTrendingItems = trendingResponse.data.data.filter((item) => item && item._id && item.type);
+        const validBestSellerItems = bestSellerResponse.data.data.filter((item) => item && item._id && item.type);
+        const validComboItems = comboResponse.data.data.filter((item) => item && item._id && item.type);
+
+        setTrendingProducts(validTrendingItems.map(mapItemToProduct));
+        setBestSellers(validBestSellerItems.map(mapItemToProduct));
+        setComboItems(validComboItems.map(mapItemToProduct));
+        setFeedback(feedbackResponse.data.data);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        // Set empty arrays on error to prevent crashes
+        setTrendingProducts([]);
+        setBestSellers([]);
+        setComboItems([]);
+        setFeedback([]);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[hsl(var(--logo-bg))] dark:bg-background">
       <Header />
       <main>
         <HeroSection />
         <CategoriesSection />
-        <TrendingSection />
-        <BestSellersSection />
+        <TrendingSection products={trendingProducts} />
+        <BestSellersSection products={bestSellers} />
+        <ComboSection products={comboItems} />
         <AboutSection />
-        <TestimonialsSection />
+        <TestimonialsSection testimonials={feedback} />
         <NewsletterSection />
       </main>
       <Footer />
