@@ -31,7 +31,7 @@ function HeroSection() {
             <span>Free shipping on all orders above ₹499</span>
           </div>
           <p className="text-sm uppercase tracking-[0.3em] text-primary font-medium">
-            Premium Handcrafted Jewelry
+            Premium Anti Tarnish Jewelry
           </p>
           
           <h1 className="font-serif text-5xl sm:text-6xl lg:text-7xl font-normal tracking-tight leading-tight">
@@ -39,11 +39,7 @@ function HeroSection() {
             <br />
             Meets Eternity
           </h1>
-          
-          <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Discover our exquisite collection of handcrafted jewelry, 
-            designed to make every moment special and every memory timeless.
-          </p>
+        
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Link href="/shop">

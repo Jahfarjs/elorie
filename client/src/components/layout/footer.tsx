@@ -32,9 +32,9 @@ export function Footer() {
                 className="h-19 w-auto object-contain"
               />
             </Link>
+            <h3>About Elorie Elegance</h3>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              Where Elegance Meets Eternity. Discover our exquisite collection of
-              handcrafted jewelry, designed to make every moment special.
+              Elorie Elegance offers premium Anti-Tarnish jewelry designed for modern elegance and everyday luxury. Our pieces are crafted to maintain their shine, resist fading, and complement every style.
             </p>
             <div className="flex items-center gap-3">
               <a
