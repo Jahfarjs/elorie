@@ -28,6 +28,18 @@ const emptyAddress: Address = {
   pinCode: "",
 };
 
+const loadRazorpayScript = () =>
+  new Promise<boolean>((resolve) => {
+    // Avoid reloading the SDK if it is already present.
+    if ((window as any).Razorpay) return resolve(true);
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
 function formatAddressLine(addr?: Address | null) {
   if (!addr) return "";
   return [addr.address, addr.landmark, addr.city, addr.district, addr.state, addr.pinCode]
@@ -142,8 +154,16 @@ export default function Checkout() {
       });
 
       if (paymentMode === "UPI") {
-        const paymentResponse = await api.post("/payments/razorpay/order", {
+        // Ensure the Razorpay SDK is available before creating an order.
+        const scriptLoaded = await loadRazorpayScript();
+        if (!scriptLoaded) {
+          throw new Error("Razorpay SDK failed to load. Please check your connection.");
+        }
+
+        // Create the Razorpay order on the backend (amount in INR).
+        const paymentResponse = await api.post("/payment/create-order", {
           orderId: orderResponse.data._id,
+          amount: total,
         });
         const razorpayOptions = {
           key: paymentResponse.data.keyId,
@@ -151,8 +171,9 @@ export default function Checkout() {
           currency: paymentResponse.data.currency,
           name: "Elorie Jewels",
           order_id: paymentResponse.data.razorpayOrderId,
+          // handler is called only after successful payment completion.
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            await api.post("/payments/razorpay/verify", {
+            await api.post("/payment/verify", {
               orderId: orderResponse.data._id,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
@@ -162,9 +183,27 @@ export default function Checkout() {
             await clearCart();
             setLocation("/profile");
           },
+          // Surface failures so users can retry or choose COD.
+          modal: {
+            ondismiss: () => {
+              toast({ title: "Payment cancelled", description: "You can retry the payment from your orders page." });
+            },
+          },
+          prefill: {
+            name: user?.name || "",
+            email: user?.email || "",
+            contact: selectedAddress?.contactNumber || user?.phone || "",
+          },
         };
         // @ts-expect-error Razorpay comes from script include
         const razorpay = new window.Razorpay(razorpayOptions);
+        razorpay.on("payment.failed", (response: any) => {
+          toast({
+            title: "Payment failed",
+            description: response?.error?.description || "The payment could not be completed.",
+            variant: "destructive",
+          });
+        });
         razorpay.open();
       } else {
         toast({ title: "Order placed successfully" });
