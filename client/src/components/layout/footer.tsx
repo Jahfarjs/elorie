@@ -98,8 +98,7 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <span className="text-muted-foreground text-sm">
-                  123 Golden Lane, Jewellery District,<br />
-                  Mumbai, Maharashtra 400001
+                  Malappuram, Kerala, India
                 </span>
               </li>
               <li>
@@ -109,7 +108,7 @@ export function Footer() {
                   data-testid="link-contact-email"
                 >
                   <Mail className="h-5 w-5 text-primary shrink-0" />
-                  hello@elorieelegance.com
+                  elorieelegance@gmail.com
                 </a>
               </li>
               <li>
@@ -119,7 +118,7 @@ export function Footer() {
                   data-testid="link-contact-phone"
                 >
                   <Phone className="h-5 w-5 text-primary shrink-0" />
-                  +91 98765 43210
+                  +91 89437 96816
                 </a>
               </li>
             </ul>
