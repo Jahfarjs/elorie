@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link } from "wouter";
 import {
   Package,
-  Truck,
   CheckCircle,
   Clock,
   MapPin,
@@ -15,55 +14,54 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { SafeImage } from "@/components/ui/safe-image";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { sampleOrders, formatPrice } from "@/lib/data";
+import { formatPrice } from "@/lib/data";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import type { Order } from "@/lib/types";
 
 const statusSteps = [
-  { key: "processing", label: "Order Placed", icon: Clock },
-  { key: "confirmed", label: "Confirmed", icon: CheckCircle },
-  { key: "shipped", label: "Shipped", icon: Package },
-  { key: "out_for_delivery", label: "Out for Delivery", icon: Truck },
-  { key: "delivered", label: "Delivered", icon: HomeIcon },
+  { key: "orderPlaced", label: "Order Placed", icon: Clock },
+  { key: "orderConfirmed", label: "Confirmed", icon: CheckCircle },
+  { key: "orderDispatched", label: "Dispatched", icon: Package },
+  { key: "orderDelivered", label: "Delivered", icon: HomeIcon },
 ];
 
 function getStatusIndex(status: string): number {
   const statusMap: Record<string, number> = {
-    processing: 0,
-    confirmed: 1,
-    shipped: 2,
-    out_for_delivery: 3,
-    delivered: 4,
+    orderPlaced: 0,
+    orderConfirmed: 1,
+    orderDispatched: 2,
+    orderDelivered: 3,
   };
   return statusMap[status] ?? 0;
 }
 
 function getStatusColor(status: string): string {
   const colorMap: Record<string, string> = {
-    processing: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
-    confirmed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
-    shipped: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
-    out_for_delivery: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
-    delivered: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+    orderPlaced: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+    orderConfirmed: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+    orderDispatched: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+    orderDelivered: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
   };
   return colorMap[status] || "";
 }
 
 export default function Tracking() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedOrder, setSelectedOrder] = useState(sampleOrders[1]);
-  const currentStatusIndex = getStatusIndex(selectedOrder.status);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const { user } = useAuth();
+  const currentStatusIndex = getStatusIndex(selectedOrder?.status || "orderPlaced");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const found = sampleOrders.find(
-      (order) =>
-        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.trackingNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    if (found) {
-      setSelectedOrder(found);
-    }
+    if (!searchQuery.trim()) return;
+    api
+      .get<Order>(`/orders/${searchQuery}`)
+      .then((response) => setSelectedOrder(response.data))
+      .catch(() => setSelectedOrder(null));
   };
 
   return (
@@ -102,7 +100,22 @@ export default function Tracking() {
             </Button>
           </form>
 
-          <Card className="p-6 sm:p-8 rounded-2xl mb-8">
+          {!user && (
+            <Card className="p-6 sm:p-8 rounded-2xl mb-8">
+              <p className="text-muted-foreground">
+                Please sign in to track your orders.
+              </p>
+            </Card>
+          )}
+          {user && !selectedOrder && (
+            <Card className="p-6 sm:p-8 rounded-2xl mb-8">
+              <p className="text-muted-foreground">
+                Enter a valid order ID to view tracking details.
+              </p>
+            </Card>
+          )}
+          {user && selectedOrder && (
+            <Card className="p-6 sm:p-8 rounded-2xl mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
               <div>
                 <p className="text-sm text-muted-foreground">Order ID</p>
@@ -110,14 +123,14 @@ export default function Tracking() {
                   className="font-mono font-semibold text-lg"
                   data-testid="text-order-id"
                 >
-                  {selectedOrder.id}
+                  {selectedOrder._id}
                 </p>
               </div>
               <Badge
                 className={`${getStatusColor(selectedOrder.status)} capitalize`}
                 data-testid="badge-status"
               >
-                {selectedOrder.status.replace("_", " ")}
+                {selectedOrder.status.replace("order", "").replace(/([A-Z])/g, " $1").trim()}
               </Badge>
             </div>
 
@@ -165,9 +178,11 @@ export default function Tracking() {
                 })}
               </div>
             </div>
-          </Card>
+            </Card>
+          )}
 
-          <div className="grid sm:grid-cols-2 gap-6">
+          {selectedOrder && (
+            <div className="grid sm:grid-cols-2 gap-6">
             <Card className="p-6 rounded-2xl">
               <h3 className="font-serif text-lg font-medium mb-4 flex items-center gap-2">
                 <Box className="h-5 w-5 text-primary" />
@@ -177,8 +192,8 @@ export default function Tracking() {
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Order Date</span>
                   <span>
-                    {selectedOrder.createdAt
-                      ? new Date(selectedOrder.createdAt).toLocaleDateString("en-IN", {
+                    {selectedOrder.createdAt || selectedOrder.orderDate
+                      ? new Date(selectedOrder.createdAt || selectedOrder.orderDate).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
@@ -187,10 +202,8 @@ export default function Tracking() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tracking Number</span>
-                  <span className="font-mono">
-                    {selectedOrder.trackingNumber || "Not yet assigned"}
-                  </span>
+                  <span className="text-muted-foreground">Payment Mode</span>
+                  <span className="font-mono">{selectedOrder.paymentMode}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Total Amount</span>
@@ -207,39 +220,44 @@ export default function Tracking() {
                 Delivery Address
               </h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                {selectedOrder.shippingAddress}
+                {selectedOrder.address}
               </p>
             </Card>
-          </div>
+            </div>
+          )}
 
-          <Card className="p-6 rounded-2xl mt-6">
+          {selectedOrder && (
+            <Card className="p-6 rounded-2xl mt-6">
             <h3 className="font-serif text-lg font-medium mb-4">Order Items</h3>
             <div className="space-y-4">
-              {selectedOrder.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex gap-4 pb-4 border-b last:border-0 last:pb-0"
-                >
-                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
-                    <img
-                      src={item.product.imageUrl || ""}
-                      alt={item.product.name}
-                      className="w-full h-full object-cover"
-                    />
+              {selectedOrder.items
+                .filter((item) => item.item != null)
+                .map((item) => (
+                  <div
+                    key={`${selectedOrder._id}-${item.item._id}`}
+                    className="flex gap-4 pb-4 border-b last:border-0 last:pb-0"
+                  >
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0">
+                      <SafeImage
+                        src={item.item.images?.[0] || item.item.image || ""}
+                        alt={item.item.title}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium line-clamp-1">{item.item.title}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Qty: {item.quantity}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">{formatPrice(item.price)}</p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-medium line-clamp-1">{item.product.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      Qty: {item.quantity}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold">{formatPrice(item.price)}</p>
-                  </div>
-                </div>
-              ))}
+                ))}
             </div>
-          </Card>
+            </Card>
+          )}
         </div>
       </main>
 

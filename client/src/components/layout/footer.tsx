@@ -3,7 +3,7 @@ import { Mail, Phone, MapPin } from "lucide-react";
 import { SiInstagram, SiWhatsapp } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import logoImage from "@assets/WhatsApp_Image_2025-12-23_at_11.16.31_1766469231040.jpeg";
+import logoImage from "@assets/logo.jpeg";
 
 const quickLinks = [
   { href: "/shop", label: "Shop All" },
@@ -29,7 +29,7 @@ export function Footer() {
               <img
                 src={logoImage}
                 alt="Elorie Elegance"
-                className="h-16 w-auto object-contain"
+                className="h-19 w-auto object-contain"
               />
             </Link>
             <p className="text-muted-foreground text-sm leading-relaxed">
@@ -47,7 +47,7 @@ export function Footer() {
                 <SiInstagram className="h-5 w-5" />
               </a>
               <a
-                href="https://wa.me/919876543210"
+                href="https://wa.me/918943796816"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="p-2.5 rounded-full bg-muted hover:bg-primary hover:text-primary-foreground transition-colors"
@@ -114,7 +114,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="tel:+919876543210"
+                  href="tel:+918943796816"
                   className="flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors text-sm"
                   data-testid="link-contact-phone"
                 >

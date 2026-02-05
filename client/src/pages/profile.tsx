@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "wouter";
+import { useEffect, useState, type FormEvent } from "react";
+import { Link, useLocation } from "wouter";
 import {
   User,
   Package,
@@ -14,12 +14,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { SafeImage } from "@/components/ui/safe-image";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { sampleOrders, formatPrice } from "@/lib/data";
+import { formatPrice } from "@/lib/data";
+import api from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import { useCart } from "@/lib/cart-context";
+import { useToast } from "@/hooks/use-toast";
+import type { Address, Item, Order } from "@/lib/types";
+import { mapItemToProduct } from "@/lib/mappers";
+import { consumePendingCartAction } from "@/lib/pending-cart";
 
 type TabType = "profile" | "orders" | "wishlist" | "addresses" | "settings";
 
@@ -31,89 +40,406 @@ const navItems: { key: TabType; label: string; icon: typeof User }[] = [
   { key: "settings", label: "Settings", icon: Settings },
 ];
 
-const sampleAddresses = [
-  {
-    id: "1",
-    name: "Home",
-    address: "123 Golden Lane, Jewellery District, Mumbai, Maharashtra 400001",
-    isDefault: true,
-  },
-  {
-    id: "2",
-    name: "Office",
-    address: "456 Diamond Street, Business Park, Delhi 110001",
-    isDefault: false,
-  },
-];
+// Demo data removed – wishlist and addresses now use real user/cart data.
 
-const sampleWishlist = [
-  { id: "7", name: "Emerald Statement Necklace", price: 8999, imageUrl: "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&h=300&fit=crop" },
-  { id: "8", name: "Vintage Ruby Ring", price: 6499, imageUrl: "https://images.unsplash.com/photo-1603561591411-07134e71a2a9?w=300&h=300&fit=crop" },
-];
+const formatAddressLine = (addr?: Address | null, fallback?: string) => {
+  if (addr) {
+    return [
+      addr.address,
+      addr.landmark,
+      addr.city,
+      addr.district,
+      addr.state,
+      addr.pinCode,
+    ]
+      .filter((p) => Boolean(p && String(p).trim()))
+      .join(", ");
+  }
+  return (fallback || "").trim();
+};
 
-function ProfileTab() {
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+function AuthPanel() {
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [form, setForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    city: "",
+    district: "",
+    state: "",
+    landmark: "",
+    pinCode: "",
+    password: "",
+  });
+  const { login, register } = useAuth();
+  const { addItem } = useCart();
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    try {
+      if (mode === "login") {
+        await login(form.email, form.password);
+      } else {
+        await register({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          address: {
+            label: "Home",
+            address: form.address,
+            city: form.city,
+            district: form.district,
+            state: form.state,
+            landmark: form.landmark,
+            contactNumber: form.phone,
+            pinCode: form.pinCode,
+          },
+          password: form.password,
+        });
+      }
+
+      // After successful authentication, attempt to restore any pending cart action.
+      const pending = consumePendingCartAction();
+      if (pending) {
+        try {
+          const response = await api.get<Item>(`/items/${pending.productId}`);
+          if (!response.data || !response.data._id || !response.data.type) {
+            throw new Error("Invalid product for pending cart action");
+          }
+          const product = mapItemToProduct(response.data);
+          await addItem(product, pending.quantity);
+          toast({
+            title: "Added to cart",
+            description: `${pending.quantity} x ${product.name} added to your cart.`,
+          });
+
+          if (pending.returnTo) {
+            setLocation(pending.returnTo);
+          } else {
+            setLocation("/cart");
+          }
+        } catch {
+          toast({
+            title: "Could not restore cart item",
+            description: "Please try adding the product to your cart again.",
+          });
+        }
+      }
+    } catch (error) {
+      const anyError = error as any;
+      const status = anyError?.response?.status as number | undefined;
+      const data = anyError?.response?.data as
+        | { message?: string; errors?: string[] }
+        | undefined;
+
+      // Prefer backend validation / auth messages when available.
+      const description =
+        data?.errors?.[0] ||
+        data?.message ||
+        "Please check your details and try again.";
+
+      toast({
+        title:
+          status === 400
+            ? "Validation error"
+            : status === 401
+            ? "Invalid credentials"
+            : "Authentication failed",
+        description,
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h2 className="font-serif text-2xl font-normal">My Profile</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="font-serif text-2xl font-normal">
+          {mode === "login" ? "Sign In" : "Create Account"}
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setMode(mode === "login" ? "register" : "login")}
+        >
+          {mode === "login" ? "Register" : "Sign In"}
+        </Button>
+      </div>
+      <form className="space-y-4" onSubmit={handleSubmit}>
+        {mode === "register" && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="register-name">Full Name</Label>
+              <Input
+                id="register-name"
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="register-phone">Phone</Label>
+              <Input
+                id="register-phone"
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+              />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="register-address">Address *</Label>
+                <Input
+                  id="register-address"
+                  value={form.address}
+                  onChange={(e) => setForm((prev) => ({ ...prev, address: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-city">City *</Label>
+                <Input
+                  id="register-city"
+                  value={form.city}
+                  onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-district">District *</Label>
+                <Input
+                  id="register-district"
+                  value={form.district}
+                  onChange={(e) => setForm((prev) => ({ ...prev, district: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-state">State *</Label>
+                <Input
+                  id="register-state"
+                  value={form.state}
+                  onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="register-pincode">Pin Code *</Label>
+                <Input
+                  id="register-pincode"
+                  value={form.pinCode}
+                  onChange={(e) => setForm((prev) => ({ ...prev, pinCode: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="register-landmark">Landmark</Label>
+                <Input
+                  id="register-landmark"
+                  value={form.landmark}
+                  onChange={(e) => setForm((prev) => ({ ...prev, landmark: e.target.value }))}
+                />
+              </div>
+            </div>
+          </>
+        )}
+        <div className="space-y-2">
+          <Label htmlFor="auth-email">Email</Label>
+          <Input
+            id="auth-email"
+            type="email"
+            value={form.email}
+            onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="auth-password">Password</Label>
+          <Input
+            id="auth-password"
+            type="password"
+            value={form.password}
+            onChange={(e) => setForm((prev) => ({ ...prev, password: e.target.value }))}
+          />
+        </div>
+        <Button type="submit" className="w-full">
+          {mode === "login" ? "Sign In" : "Create Account"}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function ProfileTab({
+  user,
+  onSave,
+  onManageAddresses,
+}: {
+  user: { name: string; email: string; phone: string; address: string; addresses?: Address[]; defaultAddress?: Address | null };
+  onSave: (payload: { name: string; email: string; phone: string }) => void;
+  onManageAddresses: () => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({
+    name: user.name,
+    email: user.email,
+    phone: user.phone,
+  });
+
+  useEffect(() => {
+    setForm({
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+    });
+    setIsEditing(false);
+  }, [user]);
+
+  const defaultAddress =
+    (Array.isArray(user.addresses) && (user.addresses.find((a) => a.isDefault) || user.addresses[0])) ||
+    user.defaultAddress ||
+    null;
+  const addressLine = formatAddressLine(defaultAddress, user.address);
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="font-serif text-2xl font-normal">My Profile</h2>
+        {!isEditing ? (
+          <Button size="sm" onClick={() => setIsEditing(true)} data-testid="button-edit-profile">
+            Edit Profile
+          </Button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setForm({ name: user.name, email: user.email, phone: user.phone });
+              setIsEditing(false);
+            }}
+            data-testid="button-cancel-edit-profile"
+          >
+            Cancel
+          </Button>
+        )}
+      </div>
       <Card className="p-6 rounded-2xl">
         <div className="flex flex-col sm:flex-row items-center gap-6 mb-8">
           <Avatar className="h-24 w-24 bg-primary/10">
             <AvatarFallback className="bg-primary/10 text-primary text-2xl font-medium">
-              PS
+              {getInitials(user.name || "U")}
             </AvatarFallback>
           </Avatar>
           <div className="text-center sm:text-left">
-            <h3 className="font-serif text-xl font-medium">Priya Sharma</h3>
-            <p className="text-muted-foreground">Member since Dec 2024</p>
+            <h3 className="font-serif text-xl font-medium">{user.name}</h3>
+            <p className="text-muted-foreground">Member since {new Date().getFullYear()}</p>
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
-            <Input
-              id="fullName"
-              defaultValue="Priya Sharma"
-              data-testid="input-fullname"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              defaultValue="priya.sharma@email.com"
-              data-testid="input-email"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              defaultValue="+91 98765 43210"
-              data-testid="input-phone"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="dob">Date of Birth</Label>
-            <Input
-              id="dob"
-              type="date"
-              defaultValue="1990-05-15"
-              data-testid="input-dob"
-            />
-          </div>
-        </div>
+        {isEditing ? (
+          <>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  data-testid="input-fullname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  data-testid="input-email"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  value={form.phone}
+                  onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                  data-testid="input-phone"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Address</Label>
+                <div className="text-sm text-muted-foreground leading-relaxed">
+                  {addressLine || "-"}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={onManageAddresses}
+                  type="button"
+                  data-testid="button-manage-addresses"
+                >
+                  Manage Addresses
+                </Button>
+              </div>
+            </div>
 
-        <div className="flex justify-end mt-6">
-          <Button data-testid="button-save-profile">Save Changes</Button>
-        </div>
+            <div className="flex justify-end mt-6">
+              <Button onClick={() => onSave(form)} data-testid="button-save-profile">
+                Save Changes
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Full Name</p>
+                <p className="font-medium" data-testid="text-profile-name">
+                  {user.name || "-"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Email</p>
+                <p className="font-medium break-words" data-testid="text-profile-email">
+                  {user.email || "-"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Phone</p>
+                <p className="font-medium" data-testid="text-profile-phone">
+                  {user.phone || "-"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Default Address</p>
+                <p className="font-medium text-muted-foreground leading-relaxed" data-testid="text-profile-address">
+                  {addressLine || "-"}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={onManageAddresses}
+                  type="button"
+                  data-testid="button-manage-addresses-view"
+                >
+                  Manage Addresses
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </Card>
     </div>
   );
 }
 
-function OrdersTab() {
+function OrdersTab({ orders }: { orders: Order[] }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -127,31 +453,31 @@ function OrdersTab() {
       </div>
 
       <div className="space-y-4">
-        {sampleOrders.map((order) => (
+        {orders.map((order) => (
           <Card
-            key={order.id}
+            key={order._id}
             className="p-4 sm:p-6 rounded-2xl"
-            data-testid={`card-order-${order.id}`}
+            data-testid={`card-order-${order._id}`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-3">
-                  <p className="font-mono font-semibold">{order.id}</p>
+                  <p className="font-mono font-semibold">{order._id}</p>
                   <Badge
                     className={`capitalize ${
-                      order.status === "delivered"
+                      order.status === "orderDelivered"
                         ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : order.status === "shipped"
+                        : order.status === "orderDispatched"
                         ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
                         : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
                     }`}
                   >
-                    {order.status}
+                    {order.status.replace("order", "").replace(/([A-Z])/g, " $1").trim()}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {order.createdAt
-                    ? new Date(order.createdAt).toLocaleDateString("en-IN", {
+                  {(order.createdAt || order.orderDate)
+                    ? new Date(order.createdAt || order.orderDate).toLocaleDateString("en-IN", {
                         day: "numeric",
                         month: "long",
                         year: "numeric",
@@ -172,18 +498,20 @@ function OrdersTab() {
             <Separator className="my-4" />
 
             <div className="flex gap-3 overflow-x-auto pb-2">
-              {order.items.map((item) => (
-                <div
-                  key={item.id}
-                  className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0"
-                >
-                  <img
-                    src={item.product.imageUrl || ""}
-                    alt={item.product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              ))}
+              {order.items
+                .filter((item) => item.item != null)
+                .map((item) => (
+                  <div
+                    key={`${order._id}-${item.item._id}`}
+                    className="w-16 h-16 rounded-lg overflow-hidden bg-muted shrink-0"
+                  >
+                    <SafeImage
+                      src={item.item.images?.[0] || item.item.image || ""}
+                      alt={item.item.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
             </div>
 
             <div className="flex justify-end mt-4">
@@ -202,10 +530,13 @@ function OrdersTab() {
 }
 
 function WishlistTab() {
+  const { items } = useCart();
+  const hasItems = items.length > 0;
+
   return (
     <div className="space-y-6">
       <h2 className="font-serif text-2xl font-normal">Wishlist</h2>
-      {sampleWishlist.length === 0 ? (
+      {!hasItems ? (
         <Card className="p-8 rounded-2xl text-center">
           <Heart className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">Your wishlist is empty</p>
@@ -217,22 +548,35 @@ function WishlistTab() {
         </Card>
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
-          {sampleWishlist.map((item) => (
-            <Card key={item.id} className="p-4 rounded-2xl">
+          {items.map((entry) => (
+            <Card
+              key={entry.id}
+              className="p-4 rounded-2xl"
+              data-testid={`card-wishlist-item-${entry.productId}`}
+            >
               <div className="flex gap-4">
                 <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted shrink-0">
-                  <img
-                    src={item.imageUrl}
-                    alt={item.name}
+                  <SafeImage
+                    src={entry.product.imageUrl || ""}
+                    alt={entry.product.name}
                     className="w-full h-full object-cover"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium line-clamp-2">{item.name}</h4>
-                  <p className="font-semibold mt-1">{formatPrice(item.price)}</p>
-                  <Button size="sm" className="mt-2">
-                    Add to Cart
-                  </Button>
+                  <h4 className="font-medium line-clamp-2">
+                    {entry.product.name}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    {entry.product.category}
+                  </p>
+                  <p className="font-semibold mt-1">
+                    {formatPrice(entry.product.price)}
+                  </p>
+                  <Link href="/cart">
+                    <Button size="sm" className="mt-2">
+                      View in Cart
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </Card>
@@ -243,45 +587,263 @@ function WishlistTab() {
   );
 }
 
-function AddressesTab() {
+function AddressesTab({
+  user,
+  onSaveAddresses,
+}: {
+  user: { address: string; addresses?: Address[] };
+  onSaveAddresses: (addresses: Address[]) => Promise<void>;
+}) {
+  const { toast } = useToast();
+  const addresses = Array.isArray(user.addresses) ? user.addresses : [];
+  const hasAddresses = addresses.length > 0;
+  const hasLegacyAddress = Boolean(user.address && user.address.trim().length > 0);
+  const [open, setOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingAddressId, setDeletingAddressId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [form, setForm] = useState<Address>({
+    label: "Home",
+    address: "",
+    city: "",
+    district: "",
+    state: "",
+    landmark: "",
+    contactNumber: "",
+    pinCode: "",
+  });
+
+  const resetForm = () => {
+    setEditingId(null);
+    setForm({
+      label: "Home",
+      address: "",
+      city: "",
+      district: "",
+      state: "",
+      landmark: "",
+      contactNumber: "",
+      pinCode: "",
+    });
+  };
+
+  const setDefault = async (id?: string) => {
+    if (!id) return;
+    const next = addresses.map((a) => ({ ...a, isDefault: String(a._id) === String(id) }));
+    await onSaveAddresses(next);
+    toast({ title: "Default address updated" });
+  };
+
+  const confirmDeleteAddress = (id?: string) => {
+    if (!id) return;
+    setDeletingAddressId(String(id));
+    setDeleteConfirmOpen(true);
+  };
+
+  const removeAddress = async () => {
+    if (!deletingAddressId) return;
+    const next = addresses.filter((a) => String(a._id) !== String(deletingAddressId));
+    if (next.length > 0 && !next.some((a) => a.isDefault)) {
+      next[0].isDefault = true;
+    }
+    await onSaveAddresses(next);
+    toast({ title: "Address removed" });
+    setDeleteConfirmOpen(false);
+    setDeletingAddressId(null);
+  };
+
+  const startEdit = (addr: Address) => {
+    setEditingId(String(addr._id || ""));
+    setForm({
+      label: addr.label || "Home",
+      address: addr.address,
+      city: addr.city,
+      district: addr.district,
+      state: addr.state,
+      landmark: addr.landmark || "",
+      contactNumber: addr.contactNumber,
+      pinCode: addr.pinCode,
+    });
+    setOpen(true);
+  };
+
+  const saveAddress = async () => {
+    const required: Array<keyof Address> = ["address", "city", "district", "state", "contactNumber", "pinCode"];
+    const missing = required.find((k) => !form[k] || !String(form[k] ?? "").trim());
+    if (missing) {
+      toast({ title: "Missing fields", description: "Please fill all required fields." });
+      return;
+    }
+
+    let next: Address[];
+    if (editingId) {
+      next = addresses.map((a) =>
+        String(a._id) === String(editingId) ? { ...a, ...form } : a
+      );
+    } else {
+      next = [
+        ...addresses,
+        { ...form, isDefault: addresses.length === 0 },
+      ];
+    }
+    // Ensure one default
+    if (next.length > 0 && !next.some((a) => a.isDefault)) next[0].isDefault = true;
+
+    await onSaveAddresses(next);
+    toast({ title: "Address saved" });
+    setOpen(false);
+    resetForm();
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="font-serif text-2xl font-normal">Saved Addresses</h2>
-        <Button data-testid="button-add-address">Add New Address</Button>
+        <Button
+          size="sm"
+          onClick={() => {
+            resetForm();
+            setOpen(true);
+          }}
+        >
+          Add Address
+        </Button>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-4">
-        {sampleAddresses.map((address) => (
-          <Card
-            key={address.id}
-            className={`p-4 rounded-2xl relative ${
-              address.isDefault ? "ring-2 ring-primary" : ""
-            }`}
-          >
-            {address.isDefault && (
-              <Badge className="absolute top-3 right-3">Default</Badge>
-            )}
-            <h4 className="font-medium flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-primary" />
-              {address.name}
-            </h4>
-            <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
-              {address.address}
-            </p>
-            <div className="flex gap-2 mt-4">
-              <Button variant="outline" size="sm">
-                Edit
-              </Button>
-              {!address.isDefault && (
-                <Button variant="outline" size="sm">
-                  Set as Default
-                </Button>
-              )}
+      {!hasAddresses && !hasLegacyAddress ? (
+        <Card className="p-8 rounded-2xl text-center">
+          <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <p className="text-muted-foreground mb-2">
+            You haven&apos;t added an address yet.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Update your address in the profile tab to see it here.
+          </p>
+        </Card>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4">
+          {hasAddresses ? (
+            addresses.map((addr) => (
+              <div key={String(addr._id || addr.address)} className="relative">
+                {addr.isDefault ? (
+                  <Badge className="absolute -top-2 -right-2">Default</Badge>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute -top-3 -right-3 h-8"
+                    onClick={() => void setDefault(String(addr._id))}
+                  >
+                    Set default
+                  </Button>
+                )}
+                <Card className={`p-4 rounded-2xl ${addr.isDefault ? "ring-2 ring-primary" : ""}`}>
+                  <h4 className="font-medium flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    {addr.label || "Address"}
+                  </h4>
+                  <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                    {[addr.address, addr.landmark, addr.city, addr.district, addr.state, addr.pinCode]
+                      .filter((p) => Boolean(p && String(p).trim()))
+                      .join(", ")}
+                  </p>
+                  {addr.contactNumber && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Contact: {addr.contactNumber}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <Button size="sm" variant="outline" onClick={() => startEdit(addr)}>
+                      Edit
+                    </Button>
+                    <Button size="sm" variant="destructive" onClick={() => confirmDeleteAddress(String(addr._id))}>
+                      Delete
+                    </Button>
+                  </div>
+                </Card>
+              </div>
+            ))
+          ) : (
+            <div className="relative">
+              <Badge className="absolute -top-2 -right-2">Default</Badge>
+              <Card className="p-4 rounded-2xl ring-2 ring-primary">
+                <h4 className="font-medium flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-primary" />
+                  Home
+                </h4>
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                  {user.address}
+                </p>
+              </Card>
             </div>
-          </Card>
-        ))}
-      </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingId ? "Edit address" : "Add new address"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Label</Label>
+              <Input value={form.label || ""} onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Address *</Label>
+              <Input value={form.address} onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>City *</Label>
+              <Input value={form.city} onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>District *</Label>
+              <Input value={form.district} onChange={(e) => setForm((p) => ({ ...p, district: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>State *</Label>
+              <Input value={form.state} onChange={(e) => setForm((p) => ({ ...p, state: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Pin Code *</Label>
+              <Input value={form.pinCode} onChange={(e) => setForm((p) => ({ ...p, pinCode: e.target.value }))} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Landmark</Label>
+              <Input value={form.landmark || ""} onChange={(e) => setForm((p) => ({ ...p, landmark: e.target.value }))} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Contact Number *</Label>
+              <Input value={form.contactNumber} onChange={(e) => setForm((p) => ({ ...p, contactNumber: e.target.value }))} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button onClick={() => void saveAddress()}>{editingId ? "Save changes" : "Add address"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Address</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to delete this address? This action cannot be undone.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={() => void removeAddress()}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -355,21 +917,80 @@ function SettingsTab() {
 
 export default function Profile() {
   const [activeTab, setActiveTab] = useState<TabType>("profile");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const { user, loading, logout, refreshProfile } = useAuth();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (!user) return;
+      const response = await api.get<{ data: Order[] }>("/orders");
+      setOrders(response.data.data);
+    };
+    fetchOrders();
+  }, [user]);
+
+  const handleProfileSave = async (payload: {
+    name: string;
+    email: string;
+    phone: string;
+  }) => {
+    try {
+      await api.put("/auth/me", payload);
+      await refreshProfile();
+      toast({ title: "Profile updated" });
+    } catch (error) {
+      toast({ title: "Update failed", description: "Please try again." });
+    }
+  };
+
+  const handleAddressesSave = async (addresses: Address[]) => {
+    try {
+      await api.put("/auth/me", { addresses });
+      await refreshProfile();
+    } catch (error) {
+      toast({ title: "Update failed", description: "Please try again." });
+      throw error;
+    }
+  };
+
+  if (!loading && !user) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 pt-24 pb-16">
+          <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8">
+            <Card className="p-6 rounded-2xl">
+              <AuthPanel />
+            </Card>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activeTab) {
       case "profile":
-        return <ProfileTab />;
+        return user ? (
+          <ProfileTab
+            user={user}
+            onSave={handleProfileSave}
+            onManageAddresses={() => setActiveTab("addresses")}
+          />
+        ) : null;
       case "orders":
-        return <OrdersTab />;
+        return <OrdersTab orders={orders} />;
       case "wishlist":
         return <WishlistTab />;
       case "addresses":
-        return <AddressesTab />;
+        return user ? <AddressesTab user={user} onSaveAddresses={handleAddressesSave} /> : null;
       case "settings":
         return <SettingsTab />;
       default:
-        return <ProfileTab />;
+        return user ? <ProfileTab user={user} onSave={handleProfileSave} /> : null;
     }
   };
 
@@ -408,6 +1029,7 @@ export default function Profile() {
                   <Separator className="my-2" />
                   <button
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                    onClick={() => setLogoutConfirmOpen(true)}
                     data-testid="button-logout"
                   >
                     <LogOut className="h-5 w-5" />
@@ -423,6 +1045,31 @@ export default function Profile() {
       </main>
 
       <Footer />
+
+      <Dialog open={logoutConfirmOpen} onOpenChange={setLogoutConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Logout</DialogTitle>
+          </DialogHeader>
+          <p className="text-muted-foreground">
+            Are you sure you want to log out of your account?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogoutConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={() => {
+                setLogoutConfirmOpen(false);
+                logout();
+              }}
+            >
+              Log Out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

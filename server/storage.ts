@@ -203,7 +203,13 @@ export class MemStorage implements IStorage {
 
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
+    const user: User = {
+      ...insertUser,
+      id,
+      email: insertUser.email ?? null,
+      phone: insertUser.phone ?? null,
+      fullName: insertUser.fullName ?? null,
+    };
     this.users.set(id, user);
     return user;
   }
@@ -250,15 +256,16 @@ export class MemStorage implements IStorage {
   }
 
   async addToCart(insertItem: InsertCartItem): Promise<CartItem> {
+    const quantity = insertItem.quantity ?? 1;
     const existing = Array.from(this.cartItems.values()).find(
       (item) => item.userId === insertItem.userId && item.productId === insertItem.productId
     );
     if (existing) {
-      existing.quantity += insertItem.quantity;
+      existing.quantity += quantity;
       return existing;
     }
     const id = randomUUID();
-    const item: CartItem = { ...insertItem, id };
+    const item: CartItem = { ...insertItem, id, quantity };
     this.cartItems.set(id, item);
     return item;
   }
@@ -302,6 +309,9 @@ export class MemStorage implements IStorage {
     const order: Order = {
       ...insertOrder,
       id,
+      status: insertOrder.status ?? "orderPlaced",
+      shippingAddress: insertOrder.shippingAddress ?? null,
+      trackingNumber: insertOrder.trackingNumber ?? null,
       createdAt: new Date(),
     };
     this.orders.set(id, order);

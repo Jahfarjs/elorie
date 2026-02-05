@@ -22,7 +22,10 @@ import {
 import { ProductCard } from "@/components/product-card";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { products, categories, formatPrice } from "@/lib/data";
+import { categories, formatPrice } from "@/lib/data";
+import api from "@/lib/api";
+import { mapItemToProduct } from "@/lib/mappers";
+import type { Item, Product } from "@/lib/types";
 
 const materials = ["22K Gold", "18K Gold", "14K Gold", "18K White Gold", "18K Rose Gold", "Platinum"];
 
@@ -157,6 +160,7 @@ export default function Shop() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     categoryFromUrl ? [categoryFromUrl] : []
   );
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
   const [sortBy, setSortBy] = useState("featured");
@@ -176,6 +180,23 @@ export default function Shop() {
     }
   }, [sortFromUrl]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await api.get<{ data: Item[] }>("/items", {
+          params: { limit: 200 },
+        });
+        // Filter out invalid items before mapping
+        const validItems = response.data.data.filter((item) => item && item._id && item.type);
+        setProducts(validItems.map(mapItemToProduct));
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setProducts([]);
+      }
+    };
+    fetchProducts();
+  }, []);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
@@ -210,7 +231,7 @@ export default function Shop() {
     }
 
     return result;
-  }, [selectedCategories, selectedMaterials, priceRange, sortBy]);
+  }, [products, selectedCategories, selectedMaterials, priceRange, sortBy]);
 
   const clearFilters = () => {
     setSelectedCategories([]);
@@ -224,7 +245,7 @@ export default function Shop() {
     (priceRange[0] > 0 || priceRange[1] < 10000 ? 1 : 0);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[hsl(var(--logo-bg))] dark:bg-background">
       <Header />
 
       <main className="flex-1 pt-24 pb-16">
