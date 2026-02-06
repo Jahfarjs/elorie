@@ -160,9 +160,24 @@ export default function Checkout() {
           throw new Error("Razorpay SDK failed to load. Please check your connection.");
         }
 
+        const upiOrderId = orderResponse.data._id as string;
+
+        const cancelUpiOrderAndNotify = async () => {
+          try {
+            await api.patch(`/orders/${upiOrderId}/cancel`);
+          } catch (e) {
+            console.warn("Cancel order request failed:", e);
+          }
+          toast({
+            title: "Payment cancelled",
+            description: "Order has been cancelled. You can try again from checkout.",
+            variant: "destructive",
+          });
+        };
+
         // Create the Razorpay order on the backend (amount in INR).
         const paymentResponse = await api.post("/payment/create-order", {
-          orderId: orderResponse.data._id,
+          orderId: upiOrderId,
           amount: total,
         });
         const razorpayOptions = {
@@ -174,7 +189,7 @@ export default function Checkout() {
           // handler is called only after successful payment completion.
           handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
             await api.post("/payment/verify", {
-              orderId: orderResponse.data._id,
+              orderId: upiOrderId,
               razorpayOrderId: response.razorpay_order_id,
               razorpayPaymentId: response.razorpay_payment_id,
               razorpaySignature: response.razorpay_signature,
@@ -183,10 +198,10 @@ export default function Checkout() {
             await clearCart();
             setLocation("/profile");
           },
-          // Surface failures so users can retry or choose COD.
+          // User closed the payment modal: cancel the order and notify via WhatsApp (backend).
           modal: {
             ondismiss: () => {
-              toast({ title: "Payment cancelled", description: "You can retry the payment from your orders page." });
+              cancelUpiOrderAndNotify();
             },
           },
           prefill: {
@@ -197,12 +212,8 @@ export default function Checkout() {
         };
         // @ts-expect-error Razorpay comes from script include
         const razorpay = new window.Razorpay(razorpayOptions);
-        razorpay.on("payment.failed", (response: any) => {
-          toast({
-            title: "Payment failed",
-            description: response?.error?.description || "The payment could not be completed.",
-            variant: "destructive",
-          });
+        razorpay.on("payment.failed", () => {
+          cancelUpiOrderAndNotify();
         });
         razorpay.open();
       } else {

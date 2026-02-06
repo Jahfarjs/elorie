@@ -11,13 +11,15 @@ import { useToast } from "@/hooks/use-toast";
 import { Package, User, Phone, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type StatusTab = "orderPlaced" | "orderConfirmed" | "orderDispatched" | "orderDelivered";
+type StatusTab = "pendingPayment" | "orderPlaced" | "orderConfirmed" | "orderDispatched" | "orderDelivered" | "cancelled";
 
 const statusTabs: { value: StatusTab; label: string }[] = [
+  { value: "pendingPayment", label: "Pending Payment" },
   { value: "orderPlaced", label: "Placed" },
   { value: "orderConfirmed", label: "Confirmed" },
   { value: "orderDispatched", label: "Dispatched" },
   { value: "orderDelivered", label: "Delivered" },
+  { value: "cancelled", label: "Cancelled" },
 ];
 
 export default function AdminOrders() {
@@ -85,6 +87,8 @@ export default function AdminOrders() {
       case "orderDispatched":
         return { status: "orderDelivered", label: "Mark Delivered" };
       case "orderDelivered":
+      case "pendingPayment":
+      case "cancelled":
         return null;
       default:
         return null;
@@ -198,6 +202,14 @@ export default function AdminOrders() {
                       {order.status === "orderDelivered" ? (
                         <Badge className="px-4 py-2 bg-green-600 text-white">
                           Completed
+                        </Badge>
+                      ) : order.status === "cancelled" ? (
+                        <Badge variant="secondary" className="px-4 py-2">
+                          Cancelled
+                        </Badge>
+                      ) : order.status === "pendingPayment" ? (
+                        <Badge className="px-4 py-2 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                          Pending Payment
                         </Badge>
                       ) : (
                         (() => {
