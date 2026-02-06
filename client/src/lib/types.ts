@@ -86,7 +86,7 @@ export interface OrderItem {
 
 export interface Order {
   _id: string;
-  status: "orderPlaced" | "orderConfirmed" | "orderDispatched" | "orderDelivered";
+  status: "pendingPayment" | "orderPlaced" | "orderConfirmed" | "orderDispatched" | "orderDelivered" | "cancelled";
   customerName?: string;
   customerPhone?: string;
   totalAmount: number;

@@ -439,6 +439,36 @@ function ProfileTab({
   );
 }
 
+const orderStatusDisplay: Record<
+  Order["status"],
+  { label: string; badgeClass: string }
+> = {
+  pendingPayment: {
+    label: "Pending Payment",
+    badgeClass: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  },
+  orderPlaced: {
+    label: "Placed",
+    badgeClass: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  },
+  orderConfirmed: {
+    label: "Confirmed",
+    badgeClass: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  },
+  orderDispatched: {
+    label: "Dispatched",
+    badgeClass: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  },
+  orderDelivered: {
+    label: "Delivered",
+    badgeClass: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  },
+  cancelled: {
+    label: "Cancelled",
+    badgeClass: "bg-muted text-muted-foreground",
+  },
+};
+
 function OrdersTab({ orders }: { orders: Order[] }) {
   return (
     <div className="space-y-6">
@@ -453,7 +483,12 @@ function OrdersTab({ orders }: { orders: Order[] }) {
       </div>
 
       <div className="space-y-4">
-        {orders.map((order) => (
+        {orders.map((order) => {
+          const statusInfo = orderStatusDisplay[order.status] ?? {
+            label: order.status.replace("order", "").replace(/([A-Z])/g, " $1").trim(),
+            badgeClass: "bg-muted text-muted-foreground",
+          };
+          return (
           <Card
             key={order._id}
             className="p-4 sm:p-6 rounded-2xl"
@@ -463,16 +498,8 @@ function OrdersTab({ orders }: { orders: Order[] }) {
               <div>
                 <div className="flex items-center gap-3">
                   <p className="font-mono font-semibold">{order._id}</p>
-                  <Badge
-                    className={`capitalize ${
-                      order.status === "orderDelivered"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : order.status === "orderDispatched"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400"
-                        : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                    }`}
-                  >
-                    {order.status.replace("order", "").replace(/([A-Z])/g, " $1").trim()}
+                  <Badge className={`capitalize ${statusInfo.badgeClass}`}>
+                    {statusInfo.label}
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
@@ -484,6 +511,16 @@ function OrdersTab({ orders }: { orders: Order[] }) {
                       })
                     : "-"}
                 </p>
+                {order.status === "pendingPayment" && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                    Complete payment from checkout to confirm this order.
+                  </p>
+                )}
+                {order.status === "cancelled" && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Payment was cancelled. You can place a new order from your cart.
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-semibold text-lg">
@@ -523,7 +560,8 @@ function OrdersTab({ orders }: { orders: Order[] }) {
               </Link>
             </div>
           </Card>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
