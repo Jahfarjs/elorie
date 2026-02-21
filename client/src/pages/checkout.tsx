@@ -55,7 +55,7 @@ export default function Checkout() {
 
   const subtotal = getTotal();
   const perItemShipping = items.reduce((sum, item) => sum + (item.product.shippingCharge || 0), 0);
-  const shipping = subtotal > 499 ? 0 : perItemShipping;
+  const shipping = subtotal > 899 ? 0 : perItemShipping;
   const total = subtotal + shipping;
 
   const savedAddresses = user?.addresses || [];

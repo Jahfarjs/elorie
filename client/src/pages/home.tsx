@@ -28,7 +28,7 @@ function HeroSection() {
               Special Offer
             </span>
             <span className="h-1 w-1 rounded-full bg-primary/40" />
-            <span>Free shipping on all orders above ₹499</span>
+            <span>Free shipping on all orders above ₹899</span>
           </div>
           <p className="text-sm uppercase tracking-[0.3em] text-primary font-medium">
             Premium Anti Tarnish Jewelry

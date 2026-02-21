@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { LayoutDashboard, Package, Users, MessageSquare, ClipboardList, LogOut } from "lucide-react";
+import { LayoutDashboard, Package, Users, MessageSquare, ClipboardList, LogOut, Tags } from "lucide-react";
 import { useAdminAuth } from "@/lib/admin-auth";
 import logoImage from "@assets/logo.jpeg";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/items", label: "Items", icon: Package },
+  { href: "/admin/item-types", label: "Item Types", icon: Tags },
   { href: "/admin/feedback", label: "Feedback", icon: MessageSquare },
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
@@ -70,7 +71,7 @@ export function AdminLayout({ children }: { children: ReactNode }) {
               <img src={logoImage} alt="Elorie Elegance" className="h-10 w-auto object-contain" />
               <div className="font-serif text-lg">Elorie Admin</div>
             </div>
-            <div className="grid grid-cols-5 gap-2">
+            <div className="grid grid-cols-6 gap-2">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = location === item.href;
