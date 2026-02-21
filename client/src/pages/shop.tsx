@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useSearch } from "wouter";
 import { Filter, Grid3X3, LayoutGrid, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,13 +19,23 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { ProductCard } from "@/components/product-card";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
-import { categories, formatPrice } from "@/lib/data";
+import { formatPrice } from "@/lib/data";
 import api from "@/lib/api";
 import { mapItemToProduct } from "@/lib/mappers";
-import type { Item, Product } from "@/lib/types";
+import type { Item, Product, ItemTypeRecord } from "@/lib/types";
+import type { Category } from "@shared/schema";
 
 const materials = ["22K Gold", "18K Gold", "14K Gold", "18K White Gold", "18K Rose Gold", "Platinum"];
 
@@ -45,6 +55,7 @@ function FilterSidebar({
   priceRange,
   setPriceRange,
   onClearFilters,
+  dynamicCategories,
 }: {
   selectedCategories: string[];
   setSelectedCategories: (categories: string[]) => void;
@@ -53,6 +64,7 @@ function FilterSidebar({
   priceRange: number[];
   setPriceRange: (range: number[]) => void;
   onClearFilters: () => void;
+  dynamicCategories: Category[];
 }) {
   const hasFilters = selectedCategories.length > 0 || selectedMaterials.length > 0 || priceRange[0] > 0 || priceRange[1] < 10000;
 
@@ -76,7 +88,19 @@ function FilterSidebar({
       <div className="space-y-4">
         <h4 className="text-sm font-medium">Categories</h4>
         <div className="space-y-3">
-          {categories.map((category) => (
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <Checkbox
+              checked={selectedCategories.length === 0}
+              onCheckedChange={(checked) => {
+                if (checked) setSelectedCategories([]);
+              }}
+              data-testid="checkbox-category-all"
+            />
+            <span className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">
+              All Categories
+            </span>
+          </label>
+          {dynamicCategories.map((category) => (
             <label
               key={category.id}
               className="flex items-center gap-3 cursor-pointer group"
@@ -156,6 +180,7 @@ export default function Shop() {
   const searchParams = new URLSearchParams(search);
   const categoryFromUrl = searchParams.get("category");
   const sortFromUrl = searchParams.get("sort");
+  const searchQueryFromUrl = searchParams.get("search");
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     categoryFromUrl ? [categoryFromUrl] : []
@@ -164,7 +189,10 @@ export default function Shop() {
   const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
   const [sortBy, setSortBy] = useState("featured");
-  const [gridCols, setGridCols] = useState<3 | 4>(3);
+  const [gridCols, setGridCols] = useState<5 | 7>(5);
+  const itemsPerPage = 35;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [dynamicCategories, setDynamicCategories] = useState<Category[]>([]);
 
   useEffect(() => {
     if (categoryFromUrl) {
@@ -182,24 +210,45 @@ export default function Shop() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchProductsAndCategories = async () => {
       try {
-        const response = await api.get<{ data: Item[] }>("/items", {
-          params: { limit: 200 },
-        });
-        // Filter out invalid items before mapping
-        const validItems = response.data.data.filter((item) => item && item._id && item.type);
+        const [itemsResponse, typesResponse] = await Promise.all([
+          api.get<{ data: Item[] }>("/items", { params: { limit: 200 } }),
+          api.get<ItemTypeRecord[]>("/item-types")
+        ]);
+
+        const validItems = itemsResponse.data.data.filter((item) => item && item._id && item.type);
         setProducts(validItems.map(mapItemToProduct));
+
+        const categoriesMap = typesResponse.data.map(type => ({
+          id: type._id,
+          name: type.name,
+          slug: type.name.toLowerCase(),
+          description: "",
+          imageUrl: ""
+        }));
+        setDynamicCategories(categoriesMap);
       } catch (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching data:", error);
         setProducts([]);
       }
     };
-    fetchProducts();
+    fetchProductsAndCategories();
   }, []);
 
   const filteredProducts = useMemo(() => {
     let result = [...products];
+
+    if (searchQueryFromUrl) {
+      const q = searchQueryFromUrl.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          (p.description && p.description.toLowerCase().includes(q)) ||
+          (p.material && p.material.toLowerCase().includes(q))
+      );
+    }
 
     if (selectedCategories.length > 0) {
       result = result.filter((p) => selectedCategories.includes(p.category));
@@ -231,7 +280,22 @@ export default function Shop() {
     }
 
     return result;
-  }, [products, selectedCategories, selectedMaterials, priceRange, sortBy]);
+  }, [products, selectedCategories, selectedMaterials, priceRange, sortBy, searchQueryFromUrl]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategories, selectedMaterials, priceRange, sortBy, searchQueryFromUrl]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPage]);
+
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredProducts, currentPage]);
+
+  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
 
   const clearFilters = () => {
     setSelectedCategories([]);
@@ -253,8 +317,8 @@ export default function Shop() {
           <div className="mb-8">
             <h1 className="font-serif text-3xl sm:text-4xl font-normal mb-2">
               {selectedCategories.length === 1
-                ? categories.find((c) => c.slug === selectedCategories[0])?.name ||
-                  "Shop All"
+                ? dynamicCategories.find((c) => c.slug === selectedCategories[0])?.name ||
+                "Shop All"
                 : "Shop All Jewelry"}
             </h1>
             <p className="text-muted-foreground">
@@ -272,6 +336,7 @@ export default function Shop() {
                 priceRange={priceRange}
                 setPriceRange={setPriceRange}
                 onClearFilters={clearFilters}
+                dynamicCategories={dynamicCategories}
               />
             </aside>
 
@@ -307,6 +372,7 @@ export default function Shop() {
                           priceRange={priceRange}
                           setPriceRange={setPriceRange}
                           onClearFilters={clearFilters}
+                          dynamicCategories={dynamicCategories}
                         />
                       </div>
                     </SheetContent>
@@ -350,20 +416,20 @@ export default function Shop() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={gridCols === 3 ? "bg-muted" : ""}
-                      onClick={() => setGridCols(3)}
-                      data-testid="button-grid-3"
+                      className={gridCols === 5 ? "bg-muted" : ""}
+                      onClick={() => setGridCols(5)}
+                      data-testid="button-grid-5"
                     >
-                      <Grid3X3 className="h-4 w-4" />
+                      <LayoutGrid className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={gridCols === 4 ? "bg-muted" : ""}
-                      onClick={() => setGridCols(4)}
-                      data-testid="button-grid-4"
+                      className={gridCols === 7 ? "bg-muted" : ""}
+                      onClick={() => setGridCols(7)}
+                      data-testid="button-grid-7"
                     >
-                      <LayoutGrid className="h-4 w-4" />
+                      <Grid3X3 className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -379,17 +445,74 @@ export default function Shop() {
                   </Button>
                 </div>
               ) : (
-                <div
-                  className={`grid gap-4 sm:gap-6 ${
-                    gridCols === 4
-                      ? "grid-cols-2 lg:grid-cols-4"
-                      : "grid-cols-2 lg:grid-cols-3"
-                  }`}
-                >
-                  {filteredProducts.map((product) => (
-                    <ProductCard key={product.id} product={product} />
-                  ))}
-                </div>
+                <>
+                  <div
+                    className={`grid gap-4 sm:gap-6 ${gridCols === 7
+                      ? "grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7"
+                      : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+                      }`}
+                  >
+                    {paginatedProducts.map((product) => (
+                      <ProductCard key={product.id} product={product} />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="mt-12 flex justify-center">
+                      <Pagination>
+                        <PaginationContent>
+                          <PaginationItem>
+                            <PaginationPrevious
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage((p) => Math.max(1, p - 1));
+                              }}
+                              className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+
+                          {Array.from({ length: totalPages })
+                            .map((_, i) => i + 1)
+                            .filter(p => p === 1 || p === totalPages || Math.abs(currentPage - p) <= 1)
+                            .map((p, i, arr) => (
+                              <React.Fragment key={p}>
+                                {i > 0 && arr[i - 1] !== p - 1 && (
+                                  <PaginationItem>
+                                    <PaginationEllipsis />
+                                  </PaginationItem>
+                                )}
+                                <PaginationItem>
+                                  <PaginationLink
+                                    href="#"
+                                    isActive={currentPage === p}
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setCurrentPage(p);
+                                    }}
+                                  >
+                                    {p}
+                                  </PaginationLink>
+                                </PaginationItem>
+                              </React.Fragment>
+                            ))
+                          }
+
+                          <PaginationItem>
+                            <PaginationNext
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setCurrentPage((p) => Math.min(totalPages, p + 1));
+                              }}
+                              className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
+                            />
+                          </PaginationItem>
+                        </PaginationContent>
+                      </Pagination>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

@@ -19,6 +19,7 @@ import NotFound from "@/pages/not-found";
 import AdminLogin from "@/pages/admin/admin-login";
 import AdminDashboard from "@/pages/admin/admin-dashboard";
 import AdminItems from "@/pages/admin/admin-items";
+import AdminItemTypes from "@/pages/admin/admin-item-types";
 import AdminFeedback from "@/pages/admin/admin-feedback";
 import AdminUsers from "@/pages/admin/admin-users";
 import AdminOrders from "@/pages/admin/admin-orders";
@@ -56,6 +57,11 @@ function Router() {
       <Route path="/admin/items">
         <AdminRoute>
           <AdminItems />
+        </AdminRoute>
+      </Route>
+      <Route path="/admin/item-types">
+        <AdminRoute>
+          <AdminItemTypes />
         </AdminRoute>
       </Route>
       <Route path="/admin/feedback">

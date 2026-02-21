@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { ShoppingBag, User, Menu, X, Sun, Moon, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useCart } from "@/lib/cart-context";
 import { useTheme } from "@/components/theme-provider";
 import logoImage from "@assets/logo.jpeg";
@@ -15,13 +16,22 @@ const navLinks = [
 ];
 
 export function Header() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const isHome = location === "/";
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { getItemCount } = useCart();
   const { theme, toggleTheme } = useTheme();
   const cartCount = getItemCount();
+
+  const handleSearchInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    if (query.trim()) {
+      setLocation(`/shop?search=${encodeURIComponent(query.trim())}`);
+    } else {
+      setLocation('/shop');
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,11 +43,10 @@ export function Header() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-        isScrolled
-          ? "bg-background/95 backdrop-blur-md shadow-sm"
-          : "bg-transparent"
-      }`}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${isScrolled
+        ? "bg-background/95 backdrop-blur-md shadow-sm"
+        : "bg-transparent"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
@@ -54,11 +63,10 @@ export function Header() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`text-sm font-medium tracking-wide transition-colors relative group ${
-                  location === link.href
-                    ? "text-primary"
-                    : "text-foreground/80 hover:text-foreground"
-                }`}
+                className={`text-sm font-medium tracking-wide transition-colors relative group ${location === link.href
+                  ? "text-primary"
+                  : "text-foreground/80 hover:text-foreground"
+                  }`}
                 data-testid={`link-nav-${link.label.toLowerCase()}`}
               >
                 {link.label}
@@ -68,14 +76,19 @@ export function Header() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="hidden sm:flex"
-              data-testid="button-search"
+            <form
+              onSubmit={(e) => e.preventDefault()}
+              className="hidden sm:flex relative items-center"
             >
-              <Search className="h-5 w-5" />
-            </Button>
+              <Search className="absolute left-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                name="search"
+                type="search"
+                placeholder="Search..."
+                onChange={handleSearchInput}
+                className="w-full bg-background/50 pl-9 sm:w-[200px] lg:w-[250px] h-9 transition-all focus-visible:ring-1 focus-visible:ring-primary focus-visible:w-[300px]"
+              />
+            </form>
 
             <Button
               variant="ghost"
@@ -132,16 +145,28 @@ export function Header() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setIsMobileMenuOpen(false)}
-                className={`py-3 px-4 rounded-xl text-sm font-medium transition-colors ${
-                  location === link.href
-                    ? "bg-primary/10 text-primary"
-                    : "text-foreground/80 hover:bg-muted"
-                }`}
+                className={`py-3 px-4 rounded-xl text-sm font-medium transition-colors ${location === link.href
+                  ? "bg-primary/10 text-primary"
+                  : "text-foreground/80 hover:bg-muted"
+                  }`}
                 data-testid={`link-mobile-${link.label.toLowerCase()}`}
               >
                 {link.label}
               </Link>
             ))}
+
+            <form onSubmit={(e) => e.preventDefault()} className="px-4 py-2 mt-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  name="search"
+                  type="search"
+                  placeholder="Search products..."
+                  onChange={handleSearchInput}
+                  className="w-full pl-10 bg-background/50 h-10"
+                />
+              </div>
+            </form>
           </nav>
         </div>
       )}

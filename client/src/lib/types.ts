@@ -1,10 +1,11 @@
-export type ItemType =
-  | "Necklaces"
-  | "Rings"
-  | "Earrings"
-  | "Bracelets"
-  | "Bangles"
-  | "Anklets";
+export type ItemType = string;
+
+export interface ItemTypeRecord {
+  _id: string;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export interface Item {
   _id: string;

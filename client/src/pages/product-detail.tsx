@@ -368,7 +368,7 @@ export default function ProductDetail() {
                 <div className="text-center p-4 rounded-xl bg-muted/50">
                   <Truck className="h-6 w-6 mx-auto mb-2 text-primary" />
                   <p className="text-xs text-muted-foreground">Free Shipping</p>
-                  <p className="text-xs font-medium">Orders over Rs.499</p>
+                  <p className="text-xs font-medium">Orders over Rs.899</p>
                 </div>
                 <div className="text-center p-4 rounded-xl bg-muted/50">
                   <Shield className="h-6 w-6 mx-auto mb-2 text-primary" />

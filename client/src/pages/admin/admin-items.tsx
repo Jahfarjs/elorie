@@ -11,21 +11,12 @@ import { SafeImage } from "@/components/ui/safe-image";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import adminApi from "@/lib/admin-api";
-import type { Item, ItemType, PaginationResponse } from "@/lib/types";
+import type { Item, ItemType, ItemTypeRecord, PaginationResponse } from "@/lib/types";
 import { formatPrice } from "@/lib/data";
 import { Plus, Edit, Trash2, X } from "lucide-react";
 
-const itemTypes: ItemType[] = [
-  "Necklaces",
-  "Rings",
-  "Earrings",
-  "Bracelets",
-  "Bangles",
-  "Anklets",
-];
-
 const emptyForm = {
-  type: "Necklaces" as ItemType,
+  type: "" as ItemType,
   title: "",
   description: "",
   material: "",
@@ -56,6 +47,16 @@ export default function AdminItems() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [itemTypes, setItemTypes] = useState<ItemTypeRecord[]>([]);
+
+  const fetchItemTypes = async () => {
+    try {
+      const response = await adminApi.get<ItemTypeRecord[]>("/item-types");
+      setItemTypes(response.data);
+    } catch {
+      // non-fatal: types list will be empty
+    }
+  };
 
   const fetchItems = async (pageNumber = page) => {
     setLoading(true);
@@ -73,6 +74,7 @@ export default function AdminItems() {
 
   useEffect(() => {
     fetchItems(1);
+    fetchItemTypes();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -272,8 +274,8 @@ export default function AdminItems() {
                   </SelectTrigger>
                   <SelectContent>
                     {itemTypes.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type}
+                      <SelectItem key={type._id} value={type.name}>
+                        {type.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -546,8 +548,8 @@ export default function AdminItems() {
                               </SelectTrigger>
                               <SelectContent>
                                 {itemTypes.map((type) => (
-                                  <SelectItem key={type} value={type}>
-                                    {type}
+                                  <SelectItem key={type._id} value={type.name}>
+                                    {type.name}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

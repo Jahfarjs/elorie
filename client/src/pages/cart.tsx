@@ -21,7 +21,7 @@ export default function Cart() {
     (sum, item) => sum + (item.product.shippingCharge || 0),
     0
   );
-  const shipping = subtotal > 499 ? 0 : perItemShipping;
+  const shipping = subtotal > 899 ? 0 : perItemShipping;
   const total = subtotal + shipping;
 
   const handleCheckout = async () => {
@@ -199,7 +199,7 @@ export default function Cart() {
                   </div>
                   {shipping > 0 && (
                     <p className="text-xs text-muted-foreground">
-                      Free shipping on orders above {formatPrice(499)}
+                      Free shipping on orders above {formatPrice(899)}
                     </p>
                   )}
 
